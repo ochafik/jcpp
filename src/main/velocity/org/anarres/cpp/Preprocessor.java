@@ -1102,6 +1102,37 @@ public class Preprocessor implements Closeable {
 				return;
 			if (include(quoteincludepath, name))
 				return;
+		} else {
+			// Try to recognize an include from a framework (for both \#include and \#import directives in Objective-C files)
+			String frameworkName = null;
+			int i = name.indexOf("/");
+			String subName = null;
+			if (i > 0) {
+				frameworkName = name.substring(0, i);
+				subName = name.substring(i + 1);
+			}
+			if (subName != null) {
+				String frameworkDirName = frameworkName + ".framework";
+				for (String path : frameworkspath) {
+					File frameworkDir = new File(path, frameworkDirName);
+					if (frameworkDir.exists() && frameworkDir.isDirectory()) {
+						if (getFeature(Feature.DEBUG))
+							System.err.println("Found framework: " + frameworkDir);
+						
+						File headers = new File(frameworkDir, "Headers");
+						if (!headers.exists())
+							headers = new File(frameworkDir, "PrivateHeaders");
+						
+						if (headers.exists()) {
+							pdir = filesystem.getFile(headers.toString());
+							VirtualFile ifile = pdir.getChildFile(subName);
+							if (include(ifile))
+								return;
+							break;
+						}
+					}
+				}
+			}
 		}
 
 		if (include(sysincludepath, name))
@@ -1738,6 +1769,7 @@ public class Preprocessor implements Closeable {
 							// break;
 
 						case PP_INCLUDE:
+						case PP_IMPORT:
 							if (!isActive())
 								return source_skipline(false);
 							else
