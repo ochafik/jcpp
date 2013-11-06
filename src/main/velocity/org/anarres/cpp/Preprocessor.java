@@ -1088,6 +1088,11 @@ public class Preprocessor implements Closeable {
 			if (include(file))
 				return true;
 		}
+		// Accept absolute paths in includes
+		VirtualFile	file = filesystem.getFile(name);
+		if (include(file))
+			return true;
+		
 		return false;
 	}
 
@@ -1095,16 +1100,18 @@ public class Preprocessor implements Closeable {
 	 * Handles an include directive.
 	 */
 	private void include(String parent, int line,
-					String name, boolean quoted)
+					String name, boolean quoted, boolean next)
 						throws IOException,
 								LexerException {
 		VirtualFile	pdir = null;
 		if (quoted) {
-			VirtualFile	pfile = filesystem.getFile(parent);
-			pdir = pfile.getParentFile();
-			VirtualFile	ifile = pdir.getChildFile(name);
-			if (include(ifile))
-				return;
+			if (!next && parent != null) {
+				VirtualFile	pfile = parent == null ? null : filesystem.getFile(parent);
+				pdir = pfile == null ? null : pfile.getParentFile();
+				VirtualFile	ifile = pdir.getChildFile(name);
+				if (include(ifile))
+					return;
+			}
 			if (include(quoteincludepath, name))
 				return;
 		} else {
@@ -1208,7 +1215,7 @@ public class Preprocessor implements Closeable {
 			}
 
 			/* Do the inclusion. */
-			include(source.getPath(), tok.getLine(), name, quoted);
+			include(source.getPath(), tok.getLine(), name, quoted, next);
 
 			/* 'tok' is the 'nl' after the include. We use it after the
 			 * #line directive. */
